@@ -1,4 +1,4 @@
-package com.iqbalfa.newsapp
+package com.iqbalfa.newsapp.ui
 
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity

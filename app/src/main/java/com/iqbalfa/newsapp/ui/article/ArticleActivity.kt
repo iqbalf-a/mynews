@@ -4,9 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.iqbalfa.newsapp.data.api.response.Article
 import com.iqbalfa.newsapp.data.repository.NewsRepository
@@ -14,29 +16,43 @@ import com.iqbalfa.newsapp.data.repository.NewsRepositoryImpl
 import com.iqbalfa.newsapp.databinding.ActivityArticleBinding
 import com.iqbalfa.newsapp.ui.article.viewadapter.ArticleAdapter
 import com.iqbalfa.newsapp.ui.article.viewadapter.ArticleCellClickListener
+import dagger.android.support.DaggerAppCompatActivity
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ArticleActivity : AppCompatActivity(), ArticleCellClickListener {
-    private lateinit var newsRepository: NewsRepository
-    private lateinit var viewModel: ArticleViewModel
+class ArticleActivity : DaggerAppCompatActivity(), ArticleCellClickListener {
+    @Inject
+    lateinit var viewModel: ArticleViewModel
     private val adapter = ArticleAdapter(this)
     private lateinit var binding: ActivityArticleBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityArticleBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         binding.apply {
             rvArticles.layoutManager = LinearLayoutManager(this@ArticleActivity)
+            adapter.addLoadStateListener { loadState ->
+                when (loadState.append) {
+                    is LoadState.Loading -> pbArticleLoading.visibility = View.VISIBLE
+                    else -> {
+                        pbArticleLoading.visibility = View.INVISIBLE
+                    }
+                }
+            }
             rvArticles.adapter = adapter
         }
+        initViewModel()
+        subscribe()
+    }
 
-        newsRepository = NewsRepositoryImpl()
+    private fun initViewModel() {
         viewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return ArticleViewModel(newsRepository) as T
+                return viewModel as T
             }
         })[ArticleViewModel::class.java]
-        subscribe()
     }
 
     private fun subscribe() {

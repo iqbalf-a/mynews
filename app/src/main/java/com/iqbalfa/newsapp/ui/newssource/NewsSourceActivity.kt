@@ -3,6 +3,7 @@ package com.iqbalfa.newsapp.ui.newssource
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -13,13 +14,16 @@ import com.iqbalfa.newsapp.databinding.ActivityNewsSourceBinding
 import com.iqbalfa.newsapp.ui.article.ArticleActivity
 import com.iqbalfa.newsapp.ui.newssource.viewadapter.NewsSourceCellClickListener
 import com.iqbalfa.newsapp.ui.newssource.viewadapter.NewsSourceViewAdapter
+import com.iqbalfa.newsapp.utils.ViewState
+import dagger.android.support.DaggerAppCompatActivity
+import javax.inject.Inject
 
-class NewsSourceActivity : AppCompatActivity(), NewsSourceCellClickListener {
-
-    private lateinit var newsRepository: NewsRepository
-    private lateinit var viewModel: NewsSourceViewModel
+class NewsSourceActivity : DaggerAppCompatActivity(), NewsSourceCellClickListener {
+    @Inject
+    lateinit var viewModel: NewsSourceViewModel
     private val adapter = NewsSourceViewAdapter(this)
     private lateinit var binding: ActivityNewsSourceBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityNewsSourceBinding.inflate(layoutInflater)
@@ -28,21 +32,40 @@ class NewsSourceActivity : AppCompatActivity(), NewsSourceCellClickListener {
             rvSources.adapter = adapter
         }
         setContentView(binding.root)
-        newsRepository = NewsRepositoryImpl()
+        initViewModel()
+        subscribe()
+        intent.getStringExtra("category")?.let { source ->
+            viewModel.getNewsSourceByCategory(source)
+        }
+    }
+
+    private fun initViewModel() {
         viewModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modeClass: Class<T>): T {
-                return NewsSourceViewModel(newsRepository) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return viewModel as T
             }
         })[NewsSourceViewModel::class.java]
-        subscribe()
     }
 
     private fun subscribe() {
-        intent.getStringArrayExtra("category")?.let { source ->
-            viewModel.sources.observe(this@NewsSourceActivity){
-                it?.let {
-                    adapter.submitData(it)
-                    adapter.notifyDataSetChanged()
+        viewModel.sources.observe(this@NewsSourceActivity) {
+            it?.let {
+                when (it) {
+                    is ViewState.Loading -> {
+                        binding.pbSourceLoading.visibility = View.VISIBLE
+                    }
+
+                    is ViewState.Success -> {
+                        it.data?.let { data ->
+                            adapter.submitData(data)
+                            adapter.notifyDataSetChanged()
+                        }
+                        binding.pbSourceLoading.visibility = View.INVISIBLE
+                    }
+
+                    is ViewState.Error -> {
+                        binding.pbSourceLoading.visibility = View.INVISIBLE
+                    }
                 }
             }
         }
